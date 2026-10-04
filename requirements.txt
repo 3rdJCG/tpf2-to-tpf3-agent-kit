@@ -1,0 +1,11 @@
+# The pipeline
+Pillow
+# convert --engine native: runs the game's own Lua (tf3port/convert/luaenv.py)
+lupa
+# The Model Editor automation (tf3port/editor.py, port.py calibrate)
+pyautogui
+# Horn check in the drive test (port.py drive): records what the PC plays
+numpy
+soundcard
+# audioop left the standard library in Python 3.13
+audioop-lts; python_version >= "3.13"

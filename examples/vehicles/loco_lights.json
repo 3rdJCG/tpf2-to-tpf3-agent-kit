@@ -1,0 +1,15 @@
+{
+    "modId": "example_loco",
+    "modName": "Example Diesel Locomotive (TF2 port WIP)",
+    "description": "A locomotive whose TF2 lights are *Lights index lists: map each light mesh to where and when it shines.",
+    "authors": [{ "name": "Original Author", "role": "CREATOR" }],
+    "tags": ["Vehicle", "Train"],
+    "workshopId": "1000000002",
+    "contentDir": "example_loco",
+    "lights": {
+        "example_headlight_front": "front_forward",
+        "example_headlight_rear": "back_backward",
+        "example_taillight_front": "front_backward",
+        "example_taillight_rear": "back_forward"
+    }
+}

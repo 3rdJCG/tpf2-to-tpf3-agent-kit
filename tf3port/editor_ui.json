@@ -1,0 +1,13 @@
+{
+    "client": [1920, 1009],
+    "targets": {
+        "menu": [1897, 22],
+        "tab_icons": [1598, 130],
+        "tab_tools": [1750, 130],
+        "bulk_resave": [1565, 300],
+        "bulk_convert": [1565, 624],
+        "bulk_validation": [1565, 750],
+        "scroll_panel_end": {"scroll": [1565, 450, -60]},
+        "bulk_generate": [1565, 746]
+    }
+}

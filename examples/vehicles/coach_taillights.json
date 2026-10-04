@@ -1,0 +1,10 @@
+{
+    "modId": "example_coach",
+    "modName": "Example Passenger Coach (TF2 port WIP)",
+    "description": "A coach that models a tail-light housing but never lights it: tailLights adds a lit copy of these meshes.",
+    "authors": [{ "name": "Original Author", "role": "CREATOR" }],
+    "tags": ["Vehicle", "Train", "Wagon"],
+    "workshopId": "1000000003",
+    "contentDir": "example_coach",
+    "tailLights": ["taillight"]
+}

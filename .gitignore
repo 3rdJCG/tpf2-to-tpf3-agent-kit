@@ -1,0 +1,20 @@
+# Your machine
+/local_settings.json
+
+# Your vehicle configs - they name other people's mods; see examples/vehicles/
+/vehicles/
+
+# Other people's mods and game data copied for reference
+/reference/
+
+# Generated
+/logs/
+/work/
+__pycache__/
+*.pyc
+
+# Private notes
+/WORKLOG.md
+
+# Claude Code per-user settings
+.claude/settings.local.json

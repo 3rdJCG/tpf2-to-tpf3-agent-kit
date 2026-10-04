@@ -1,0 +1,221 @@
+# Roadmap
+
+The goal: port TF2 vehicle mods to TF3 **without manual work**.
+
+| Stage | Status |
+|---|---|
+| TF2 layout → TF3 staging | Automatic (`build`) |
+| TF2 → TF3 conversion | Automatic, no GUI (`convert`, Phase B). `--engine editor` drives the Model Editor's GUI instead |
+| Material types, textures, lights and the rest | Automatic (`post`) |
+| UI icons | Automatic, no GUI (`genicons`, Phase B-5). `--engine editor` drives the Model Editor's GUI instead |
+| Validation | Automatic (`check` / `gamecheck`; `validate` with `--engine editor`) |
+| In-game checks | Appearance automatic (`port.py smoke`). Driving and sound optional (`port.py drive`) or by hand |
+
+Run through `all` on 31 mods by different authors: diesel, electric and steam locomotives, DMUs, EMUs, coaches,
+sleepers and wagons.
+
+## Phase A: GUI automation (done)
+
+Let a machine do the Model Editor's few clicks. The conversion logic stays the official one, so there is no risk
+of taking on every pitfall ourselves. Details in [model-editor.md](model-editor.md).
+
+Its weakness: it clicks coordinates, so a game update that moves the UI breaks it. Safety checks make it stop, and
+the coordinates are re-measured. Still available as `--engine editor`.
+
+## Phase B: our own conversion (done)
+
+Make the Model Editor unnecessary. **Not in one go: replace it bottom-up, and at each stage compare mechanically
+with the official conversion's output.** Phase A stays, switchable per step, so it is always possible to fall back.
+
+### Why
+
+Besides speed and needing no GUI (the mouse stays free, no screen-size requirement, UI changes cannot break it):
+
+- The conversion's side effects can be chosen, instead of fixing afterwards in `post` what the official conversion
+  added or dropped.
+- Failures can be followed inside. The editor sometimes dies silently (meshes without tangents, `transf`
+  functions).
+- One file or one model can be redone. With the editor, `build` wipes everything and `convert` starts over.
+- The output is deterministic, so the whole pipeline can be regression-tested byte for byte.
+
+### What made it possible
+
+**Most of the conversion is base's Lua.** When the Model Editor loads a `.mdl`, it passes it through the `loadModel`
+modifiers that `model_editor/editor_base_mod.lua` (in `model_editor.zip`) registers, and writes out the result. The
+functions themselves are in `base.zip` (`base/model_metadata_util.lua`, `base/metadataanimationutil.lua`,
+`base/vehicle_metadata_util.lua`), **all readable**, including the defaults that looked riskiest (`landVehicle`
+values, `transformatorConfig`, `emissions`, `compartmentsList` ...).
+
+```
+toCompartmentList → addTransformatorConfig → turnRoadAndRailToLandVehicle
+→ createAnimationEvents{Road,Rail,Water,Air}Vehicle → replaceMeshIdWithNodeName
+→ squeezeConfigsToOneConfigForVehicles → sortLods → addTextureLods → makeLoadIndicators
+→ makeCargoEntry → makeCargoTypeSet → convertParticleSystem → (sound set name mapping) ...
+```
+
+From the game itself it only needs the vector and matrix helpers (`/scripts/mat4.tl`, `/scripts/vec3.tl`, Teal)
+and the `boundingInfo` (→ `extent`) that the engine computes.
+
+### B-0. Reference data and comparison tools
+
+The staging area after a normal port is not a reference: `post` rewrites `.mtl` and `.mdl` on top of the official
+conversion, overlapping what the conversion does (types, sampler names), so the difference cannot be subtracted
+back out. Reference data is made separately:
+
+- `python port.py golden [vehicle...]` (default: every config) runs `build` → `convert --engine editor` on a copy of
+  each config with `_golden` appended to `modId`, copies the result to the workspace's `work/golden/<vehicle>/pre`
+  (`build`'s output = our conversion's input) and `post` (the editor's output = the reference), and deletes the
+  copy's staging and config. Existing staging is never touched. About 30-40 s per vehicle; 31 vehicles took
+  18 minutes and 1.8 GB.
+- `python port.py compare-convert tree <reference> <other>` reads `.mdl`/`.mtl`/`.msh`/`.ani` as data (ignoring key
+  order, layout and float formatting; numbers within 1e-6 relative) and compares everything else as bytes.
+  `mod.json`, `_metadata/` and `port.json` contain the `modId` and are skipped.
+- **The editor's output is deterministic**: two vehicles converted twice gave identical files.
+
+### B-1. Meshes — done
+
+`tf3port/convert/mesh.py`; reading and writing data Lua is `tf3port/convert/luadata.py`. Checked with
+`python port.py compare-convert mesh`.
+
+**All 2928 meshes the editor wrote match byte for byte, `.msh` text and `.blob`.**
+
+- Most mods are already in TF3's layout and come out unchanged (the editor only reformats). Mods in an old layout
+  get their vertex attributes and indices reordered to `position → uv0 → normal → tangent → uv1` with the offsets
+  packed again (**offsets and counts are in bytes**). Any other attribute stops with `MeshError`.
+- The old converter's output (`-- Generated by Train Fever Model Converter`) carries `matConfigs`,
+  `subMeshes[].materials` and `animations`. **The editor drops all three** (materials live in the `.mdl`).
+- Meshes no model refers to are left alone by the editor, so they are left alone here too.
+- The editor's layout: keys sorted; a keyed table opens with `{ ` (with a space), a list with `{`; only the top level
+  is indented one step deeper and closes one step shallower; CRLF line ends; no newline after the final `end`.
+  `luadata.dump` reproduces it.
+
+### B-2. Materials — done
+
+`tf3port/convert/material.py`. Checked with `python port.py compare-convert material`.
+
+**All 718 `.mtl` files of 31 mods match the editor's output byte for byte.**
+
+**The rules come from data the game ships.** The editor's code is inside the exe, but the definitions it follows
+are readable Lua:
+
+- `base/content/rendering/<type>.mat.lua`: the properties of each type. `legacyName` is the TF2 type name
+  (`PHYSICAL_NRML_MAP` etc.)
+- `properties/<name>.prop.lua` in `rendering/properties.zip`: each property's fields (name, type, `arrayCount`,
+  `defaultValue`, `skipIfDefault`) and sampler names (`map_albedo` → `albedoTex`)
+
+These are Urban Games' files, so they are not shipped: `tf3port/convert/basegame.py` **reads them from your TF3 at
+run time**. How they are applied (settled against the reference data):
+
+- **Every property** of the type is written, each field with the TF2 value or the default. `skipIfDefault` leaves
+  out fields equal to the default, and a property left empty is left out entirely. That is why `light_receiver`
+  (`lightMask = 2`, `isLegacyMaterial = true`), `texcoord_scale` and `alpha_test`'s `sorted = false` appear, and
+  `polygon_offset` and `fade_out_range` disappear when at their defaults.
+- Fields with an `arrayCount` of 2 or more are padded with the default (`albedoScales { 1 }` → `{ 1, 0 }`).
+- TF2 fields the property does not define are dropped.
+- Samplers keep `fileName` and `type`, and write the rest **only when it differs from the editor's defaults**
+  (`SAMPLER_DEFAULTS`: `wrapS/T = CLAMP_TO_EDGE`, `magFilter = LINEAR` ...). `compressionAllowed` is dropped. A
+  sampler the type has but TF2 lacks gets `::/placeholders/mat/tex/unknown_texture.dds`.
+- Floats are written with 6 significant digits (C's `%g`). `type` and `order` (0 if absent) as they are,
+  `__version = ""`.
+
+Unknown: the 31 mods used 7 of TF3's roughly 50 types. The rules are data-driven, so they should hold for the
+others, but that is unconfirmed.
+
+### B-3. Models and animations — done
+
+`tf3port/convert/model.py`, `luaenv.py`, `native.py`. Checked with `python port.py compare-convert model`.
+
+**All 212 `.mdl` files of 31 mods match the editor's output byte for byte**, as do the 214 referenced `.ani`.
+Running our conversion on `build`'s output and comparing every file with the editor's Bulk Convert (31 mods, 8189
+files) gives no difference.
+
+Two stages:
+
+1. **Run the game's Lua as it is.** `editor_base_mod.lua` from `model_editor.zip` runs in lupa, and the model goes
+   through the 26 functions it registers with `addModifier("loadModel", ...)`. `require` reads from base's zips;
+   Teal files (`mat4.tl`, `vec3.tl`, `vec4.tl`) are compiled to Lua with the bundled Teal compiler
+   (`tf3port/convert/vendor/tl.lua`, v0.24.8, MIT). The game uses Lua 5.2, lupa 5.4.
+2. **Reproduce the editor's C++ side by rule** (reading the data into typed structures and writing them back,
+   `editor_pass`), worked out one difference at a time against the reference data:
+   - numbers rounded to float32, then 0 below `FLT_EPSILON`, then 6 significant digits (`fmt_float`)
+   - fields the structures lack are dropped (`landVehicle.weight` / `soundSet`, `multipleUnitOnly`,
+     `blinkInterval`, `*Lights` and `axleRadii` in `railVehicle.config`, `soundSet.horn` / `events` ...)
+   - defaults left out (seats' `crew = false` / `forward = true`, `lods[].static = false`, empty `animations` ...)
+   - required fields filled with defaults (`curveSpeedScale = 1`, `weightMaxPayload = 0`, `cargoEntry`,
+     `entrances` ...)
+   - `capacity` rounded to a multiple of 4 (103 → 104, 85 → 84; halves round up)
+   - `name` / `description` wrapped in `_()`; an empty name is `""`, an empty description left out
+   - a `MESH` collider becomes a box from `boundingInfo` (computed in float32)
+   - `arrivalDelay` / `departureDelay` from the longest `open_*` / `close_*` animation (only above 2000 ms)
+   - TF2 exhaust (`color`, `size01`, a numeric `lifeTime` ...) into TF3's curve form
+   - `keyframes` dropped from `FILE_REF` animations
+3. `.ani` files are evaluated and written back in the same layout. **The editor leaves `.ani` and `.msh` files no
+   model refers to alone**, and so does this.
+
+Unknown: the rules come from what the 31 mods contained. Defaults of fields that never appeared, and other vehicle
+kinds (buses, ships, aircraft), are unconfirmed. Unknown fields are kept (the editor might drop them).
+
+### B-4. Switching over — done
+
+`convert` defaults to our conversion (`--engine native`); `--engine editor` goes back to the editor's Bulk Convert.
+Needs lupa (`requirements.txt`). Seconds per vehicle, no screen or mouse.
+
+Checked by porting a copy of a locomotive under another `modId` with `build convert post check gamecheck`: `check`
+0, the game's validation 0. Compared with the same locomotive ported through the editor, the only differences were
+translation keys containing the `modId`, and the icons.
+
+Native is the default because `convert` matches the editor byte for byte on every file of all 31 mods, so the game
+reads the same files as before.
+
+### B-5. Icons — done
+
+`tf3port/render/` (`scene.py` turns a model into triangles, `raster.py` is a numpy rasterizer, `icons.py` frames
+them). The default for `genicons` (about 10-20 s per model, no screen or mouse); `--engine editor` goes back to the
+Model Editor's Bulk Generate. Compare with `python port.py compare-icons` (against editor icons left in staging).
+
+The game's scripting cannot make them (its only capture is `gui.camera.takeScreenshot(scale)`: no transparency, no
+orthographic view, no masks), so they are drawn. The framing comes from the editor's settings file
+(`screenshotOptions` in `model_editor_settings_v13.lua`) and its output:
+
+| File | How |
+|---|---|
+| `_icon_small@2x` / `_icon20@2x` | Orthographic side view, `sideConfig.pixelsPerMeter` 8 × `upscaleFactor` 2 = 16 px/m. Width from the `boundingInfo` length, height fixed at 112 / 40 px. Placed on the editor's track (`model_editor/stage/stage_track_simple.mdl`, 4 m tiles), the image bottom at the track bottom. Colours in HSV: saturation^0.7, value^0.85 (20 px: 0.6 / 0.8) |
+| The two `_cblend` | **1 − red channel** of the CBLEND material's `cblendDirtRustTex` (red marks "keep the original colour") |
+| `_store` | A perspective view from the same fixed camera for every vehicle (azimuth −20°, elevation 0.6°, 52.5 m, focal length 4890 px), cropped to the content plus 8 px |
+
+Results (the first model of each of 31 mods, against the editor's icons):
+
+| | Size matches | Shape (IoU) | Colour difference (0-255) |
+|---|---|---|---|
+| Side views | 31/31 | mean 0.94-0.95 (min 0.83) | mean 22-24 |
+| Masks | 31/31 | | mean about 1 |
+| Store | ±1 to a few px | mean 0.93 (min 0.51: crop margin on one wagon) | mean 34 |
+
+Shape and framing nearly match; colour and shading are simplified (no PBR, shadows or sky reflections). Findings and
+trade-offs:
+
+- **Triangles more than 3 m outside `boundingInfo` are not drawn.** Some mods have headlight beams (glowing cones,
+  100 m long) or parts at 1e5-1e8 m, which the editor's icons do not show (in game they are presumably shrunk by
+  `*_parts_off`). With 1 m, a raised pantograph on a vehicle modelled with it folded disappeared too.
+- Metal (mga red) is painted a fixed colour (`METAL_ENV`) in place of the sky's reflection. Mods make their metal maps
+  differently and no single value fits all.
+- Window glass does not match (the editor shows a bright reflection; here the interior looks dark).
+- For one mod, the editor's side icons are mirrored. The reason is unknown (possibly an old icon left over).
+- Crew (people in the seats) are not drawn.
+
+### Stop conditions
+
+- **If the output stops matching the official one, stop at that stage and go back to Phase A.**
+- When a game update changes the reference (the editor's output), make the B-0 reference data again and compare
+  again. A stage that differs goes back to the editor path until fixed.
+
+## Open issues
+
+Things that affect the quality of a port, independent of the automation.
+
+1. `model lods: 0`: LODs are not recognised. May affect distant views.
+2. No `lightSourceList`: lights switch on and off, but **no light falls ahead of the train**. Official vehicles
+   define `radius`, `angleMin/Max`, switch-on times and so on.
+3. Recheck the mga green inversion (`invertMgaGreen`), decided before the vertical flip was in place.
+4. The `No metadata info` warning: metadata TF3 expects is missing.
+5. Porting the Lua of mods with a non-empty `runFn` to Teal.

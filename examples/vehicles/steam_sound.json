@@ -1,0 +1,14 @@
+{
+    "modId": "example_steam",
+    "modName": "Example Steam Locomotive (TF2 port WIP)",
+    "description": "Steam particles instead of diesel exhaust, a horn the original references but never shipped replaced by a base game one, and the base sound set to use when the original set cannot load.",
+    "authors": [{ "name": "Original Author", "role": "CREATOR" }],
+    "tags": ["Vehicle", "Train"],
+    "workshopId": "1000000004",
+    "contentDir": "example_steam",
+    "particles": { "id": "steam" },
+    "soundReplace": {
+        "vehicle/example_steam/whistle.wav": "::/vehicle/train/shared/sound/train_electric_old/whistle.wav"
+    },
+    "soundSetFallback": "::/vehicle/train/shared/sound/train_steam_old.snd"
+}

@@ -1,0 +1,9 @@
+{
+    "modId": "example_minimal",
+    "modName": "Example EMU (TF2 port WIP)",
+    "description": "A TF2 mod that uses TF2's later features converts with no settings beyond these.",
+    "authors": [{ "name": "Original Author", "role": "CREATOR" }],
+    "tags": ["Vehicle", "Train"],
+    "workshopId": "1000000001",
+    "contentDir": "example_emu"
+}
