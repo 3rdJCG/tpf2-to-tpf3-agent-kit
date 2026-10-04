@@ -29,7 +29,7 @@ sleepers and wagons.
 ## Getting started
 
 ```
-git clone <this repository>
+git clone https://github.com/3rdJCG/tpf2-to-tpf3-agent-kit.git
 pip install -r tpf2-to-tpf3-agent-kit/requirements.txt
 
 mkdir my-tf3-ports
@@ -171,7 +171,7 @@ they are read from your own TF3 install at run time.
 ### はじめに
 
 ```
-git clone <このリポジトリ>
+git clone https://github.com/3rdJCG/tpf2-to-tpf3-agent-kit.git
 pip install -r tpf2-to-tpf3-agent-kit/requirements.txt
 
 mkdir my-tf3-ports
