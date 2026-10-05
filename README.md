@@ -6,6 +6,11 @@ coding agent such as Claude Code, which can then take a port from start to in-ga
 
 [日本語は下にあります / Japanese below](#日本語)
 
+![One request to Claude Code: a TF2 mod is converted and checked in TF3, unattended](docs/demo.gif)
+
+*One request, no hands: the agent ports a TF2 mod and checks it in TF3 (parts sped up).
+The mod is "Toyama 8000 Rail Vehicle" by JackTheOh, built on a TF2 DLC tram.*
+
 - **Its own conversion.** Models, materials, meshes and animations are converted TF2 → TF3 by running the game's
   own Lua. The result is byte-identical to the official Model Editor's Bulk Convert on 31 mods. The Model Editor is
   never opened.
@@ -149,6 +154,8 @@ they are read from your own TF3 install at run time.
 コマンド1本で TF2 の MOD から TF3 の MOD を組み立てます。Claude Code などのコーディングエージェントに
 手順書(Skill)ごと渡して、移植からゲーム内の確認までを任せられるように作ってあります。
 ドキュメント(`docs/`)は英語です。
+
+冒頭の GIF は、Claude Code に一言頼んで TF2 の MOD(JackTheOh さんの「Toyama 8000 Rail Vehicle」。TF2 の DLC の路面電車を鉄道車両にしたもの)を移植し、TF3 で確認するまでを録画したものです(一部早送り)。
 
 - **変換は自前。** TF2 → TF3 のモデル・マテリアル・メッシュ・アニメーションの変換は、ゲーム自身の Lua を実行して
   行います。公式 ModelEditor の Bulk Convert と、31本の MOD でバイト単位まで一致します。ModelEditor は開きません。
