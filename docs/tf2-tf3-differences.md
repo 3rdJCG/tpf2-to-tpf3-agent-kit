@@ -198,6 +198,7 @@ broken in the original**. TF3's validation reports them as errors.
 |---|---|
 | Materials no model uses | `build` drops them |
 | TF2 game assets (`terrain/coal_albedo.dds`, `vehicle/train/emissive/train_all_lights.mtl` ...) | `build` looks for the same name and path in TF3's own zips and points at it with `::/` (placeholders excluded) |
+| A TF2 base or DLC vehicle's meshes, materials and textures (a mod that only rewrites that vehicle's `.mdl`) | `build` copies them in from your TF2 install (`tf2base.py`). Pointing at TF3's version does not work: TF3 remodelled such vehicles, with other mesh names and material groups, and the game rejects the model |
 | Emissive texture (`map_emissive`) | `build` generates a white one (64x64). The colour comes from `emissiveScale` |
 | Normal map (`map_normal`) | Base's `default_normal_map.dds` |
 | Albedo, mga | No stand-in, shown as `MISSING`. Look for them in the author's other mods |

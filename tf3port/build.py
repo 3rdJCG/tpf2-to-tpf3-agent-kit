@@ -13,6 +13,7 @@ from PIL import Image
 
 from .common import read, tf3_name, write, write_stamp
 from .dds import HEADER_LEN, dds_with_mips
+from . import tf2base
 from .paths import TF3_BASE, WORKSHOP
 
 
@@ -141,17 +142,38 @@ def inline_transf(text):
     return text
 
 
-def retarget_mdl(text, own_mtl=None):
+def base_equivalent(path):
+    """A TF2 base reference that TF3's base still has at the same path (the
+    shared emissive materials, e.g. vehicle/train/emissive/train_all_lights.mtl),
+    as ::/, or None.
+
+    Not guessed beyond the same path: TF3 moved base vehicles' files into
+    msh/ mat/ ani/ folders, and a TF2 .mdl pointed there failed in game - TF3
+    had remodelled that vehicle, with other material groups. tf2base copies
+    TF2's own files in instead."""
+    return "::/" + path if "::/" + path in base_files() else None
+
+
+def retarget_mdl(text, own_mtl=None, own_msh=None, own_ani=None):
     """TF2 resolves each resource kind against its own res/models/<kind> root;
     TF3 resolves everything against the .mdl's own folder. Keyed on the file
     name so it works whatever sub-tree the mod used.
 
-    A material the mod does not ship is TF2 base's; if TF3's base has the same
-    path it gets ::/ (one mod's headlights use the base game's
-    vehicle/train/emissive/train_all_lights.mtl)."""
-    text = re.sub(r'"(?:[^"]*/)?([^"/]+)/([^"/]+)\.msh"',
-                  lambda m: '"msh/%s/%s.msh"' % (tf3_name(m.group(1)),
-                                                 tf3_name(m.group(2))), text)
+    A mesh, material or animation the mod does not ship is TF2 base's; it gets
+    a ::/ reference to wherever TF3's base keeps it (base_equivalent). Without
+    the own_* sets (no build context) everything is taken as the mod's own."""
+    def from_base(path, kind, own):
+        if own is None or path.lower() in own:
+            return None
+        return base_equivalent(path)
+
+    def msh(m):
+        base = from_base(m.group(1), "msh", own_msh)
+        if base:
+            return '"%s"' % base
+        return '"msh/%s/%s.msh"' % (tf3_name(m.group(2)), tf3_name(m.group(3)))
+
+    text = re.sub(r'"((?:[^"]*/)?([^"/]+)/([^"/]+)\.msh)"', msh, text)
 
     def mtl(m):
         path, name = m.group(1), tf3_name(m.group(2))
@@ -159,8 +181,8 @@ def retarget_mdl(text, own_mtl=None):
             return '"mat/%s.mtl"' % name
         if path.lower() in own_mtl:
             return '"mat/%s"' % own_mtl[path.lower()]
-        base = "::/%s" % path
-        if base in base_files():
+        base = base_equivalent(path)
+        if base:
             return '"%s"' % base
         print("  WARNING material not in the mod nor in base: %s" % path)
         return '"mat/%s.mtl"' % name
@@ -169,9 +191,13 @@ def retarget_mdl(text, own_mtl=None):
     # animations keep their parent folder too: one mod has DOOR-AFR.ani under
     # both close_doors_right/ and open_doors_right/.
     # leave ::/ and / alone - those are base assets, not ours
-    text = re.sub(r'"(?!::/|/)(?:[^"]*?/)?([^"/]+)/([^"/]+)\.ani"',
-                  lambda m: '"ani/%s/%s.ani"' % (tf3_name(m.group(1)),
-                                                 tf3_name(m.group(2))), text)
+    def ani(m):
+        base = from_base(m.group(1), "ani", own_ani)
+        if base:
+            return '"%s"' % base
+        return '"ani/%s/%s.ani"' % (tf3_name(m.group(2)), tf3_name(m.group(3)))
+
+    text = re.sub(r'"(?!::/|/)((?:[^"]*?/)?([^"/]+)/([^"/]+)\.ani)"', ani, text)
     return text
 
 
@@ -379,6 +405,17 @@ def material_names(v):
     return out
 
 
+def shipped(src_root):
+    """The files under a TF2 resource root, as lowercase paths relative to it
+    - the form a .mdl refers to them by."""
+    out = set()
+    for root, _, files in os.walk(src_root):
+        for fn in files:
+            rel = os.path.relpath(os.path.join(root, fn), src_root)
+            out.add(rel.replace(os.sep, "/").lower())
+    return out
+
+
 def copy_flat(src_root, dst_root, keep_parent=False, exts=None, skip=()):
     """Mirror a TF2 resource tree into one flat (or one-level) TF3 folder.
     `skip` names top-level folders under src_root to leave out."""
@@ -410,12 +447,24 @@ def copy_flat(src_root, dst_root, keep_parent=False, exts=None, skip=()):
 def cmd_build(v):
     if os.path.exists(v.dst):
         shutil.rmtree(v.dst)
+    tmp = tf2base.overlay(v, lambda ref: base_equivalent(ref) is not None)
+    try:
+        _build(v)
+    finally:
+        if tmp:
+            v._res = None
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _build(v):
 
     nmsh, _ = copy_flat(os.path.join(v.res, "models", "mesh"),
                         os.path.join(v.veh, "msh"), keep_parent=True)
     nani, _ = copy_flat(os.path.join(v.res, "models", "animation"),
                         os.path.join(v.veh, "ani"), keep_parent=True,
                         exts={".ani"})
+    own_msh = shipped(os.path.join(v.res, "models", "mesh"))
+    own_ani = shipped(os.path.join(v.res, "models", "animation"))
     rebased = 0
     for root, _, files in os.walk(os.path.join(v.veh, "ani")):
         for fn in files:
@@ -435,6 +484,9 @@ def cmd_build(v):
                                 keep_parent=True,
                                 exts={".tga", ".dds"}, skip=("ui",))
     own = set(os.path.splitext(p.replace(os.sep, "/"))[0] for p in tex_paths)
+    # later steps all read mat/; a mod that only rewrites a base vehicle's
+    # .mdl ships no materials, so make sure it exists
+    os.makedirs(os.path.join(v.veh, "mat"), exist_ok=True)
 
     nmtl, borrowed = 0, set()
     mtl_map = material_names(v)
@@ -496,7 +548,7 @@ def cmd_build(v):
         body = lift_strings(v, body, os.path.splitext(name)[0])
         lines, nlods = rebuild_configs(body.split("\n"))
         write(os.path.join(v.veh, name),
-              retarget_mdl("\n".join(lines), own_mtl))
+              retarget_mdl("\n".join(lines), own_mtl, own_msh, own_ani))
         print("  %-28s -> %-28s lods=%d" % (fn, name, nlods))
         nmdl += 1
     write(os.path.join(v.dst, "_metadata", MODEL_MAP),
@@ -527,6 +579,9 @@ def drop_unused_materials(v):
             used.update(re.findall(r'"mat/([^"]+\.mtl)"',
                                    read(os.path.join(v.veh, fn))))
     mat = os.path.join(v.veh, "mat")
+    # a mod that only rewrites a base vehicle's .mdl ships no materials
+    if not os.path.isdir(mat):
+        return 0
     dropped = sorted(f for f in os.listdir(mat)
                      if f.endswith(".mtl") and f not in used)
     for f in dropped:

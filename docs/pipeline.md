@@ -19,7 +19,7 @@ python port.py <vehicle> all       everything below, in order
 
 | Step | Module | What it does |
 |---|---|---|
-| `build` | `build.py` | Moves the `res/` layout to `content/<contentDir>/`. Rewrites references, lowercases, splits the config per LOD, makes node names unique, writes out `transf` calls, leaves out unused or empty models, resolves assets from base and other mods, writes `mod.json` and the cover image |
+| `build` | `build.py` | Moves the `res/` layout to `content/<contentDir>/`. Rewrites references, lowercases, splits the config per LOD, makes node names unique, writes out `transf` calls, leaves out unused or empty models, resolves assets from base and other mods, copies in files the mod takes from TF2 itself or a TF2 DLC (`tf2base.py`, needs TF2 installed), writes `mod.json` and the cover image |
 | `convert` (default) | `convert/native.py` | The TF2 → TF3 conversion without the Model Editor (no screen or mouse, seconds). Runs the game's Lua with lupa and reproduces what the editor does on top by rule. Byte-identical to the editor's output on 31 vehicles ([roadmap.md](roadmap.md), Phase B) |
 | `convert --engine editor` | `editor_steps.py` → `editor.py` | The official conversion (`.mdl`/`.mtl`/`.msh`). A read-only Bulk Validation first proves the editor opened the right mod |
 | `materials` | `materials.py` | Settles types and sampler names, decides transparency, `alpha_test` |

@@ -28,6 +28,9 @@ repository that deals with it.
 | The driver sits outside the cab | Duplicate node names (`Cube` everywhere): seat references are converted to node names | `build` |
 | Blank name or icon in the vehicle list | A `.mdl` that is not a vehicle (e.g. a parts holder) got in, or the name is empty | `build` / `menu` |
 | A name shows its translation key | A key defined nowhere. Borrow it from another mod's strings.lua, or make a name from the key | `strings` |
+| `Group 'body' has N materials but mesh has N groups`, model removed | A TF2 `.mdl` pointed at a vehicle TF3 remodelled | `build` copies TF2's own files in (needs TF2: `tf2` in `local_settings.json`) |
+| `key not found` loading a material | An empty `colors = { }` in a TF2 material came out as `{ { }, ... }` | `convert` (fixed) |
+| A red "Reloading UI" screen right after the smoke or drive test starts the game | The game was started while mod.io was still syncing subscriptions; the main menu's download dialog fails inside a UI recipe and the UI reloads | Harmless: the test carries on. Waiting for mod.io to finish (`api.modhub.getModManagementState(id).busy`) avoids it but costs about 10 s per run, so the scripts do not |
 | A consist's name shows `<modId>_mu_<name>_1` | Its text was moved to a key after `strings` had run (only in a single `all`) | `consists` adds it to strings.json |
 
 ## Editor and game errors

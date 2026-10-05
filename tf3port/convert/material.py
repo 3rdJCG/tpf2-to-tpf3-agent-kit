@@ -116,6 +116,12 @@ def _norm(field, value):
     # an array: of numbers for Float, of vectors for Vec*f. A bare element
     # (a number, or one vector) is an array of one.
     is_vector = kind.startswith("Vec")
+    # an empty Lua table reads as a dict; here it is an empty array. Taken as
+    # one element it came out as colors = { { }, { -1, -1, -1 } } (a DLC
+    # tram's TF2 material has colors = { }), and the game rejected the
+    # material: "key not found"
+    if value == {}:
+        value = []
     if not isinstance(value, list) or (is_vector and value and not isinstance(value[0], list)):
         value = [value]
     value = [_one(kind, v) for v in value[:count]]

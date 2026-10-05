@@ -29,6 +29,37 @@ def _refs(data, out):
             _refs(v, out)
 
 
+def _mesh_exists(ref, model_dir):
+    if ref.startswith("::/"):
+        return ref[3:] in luaenv.resource_index()
+    return os.path.exists(os.path.join(model_dir, ref))
+
+
+def prune_missing_meshes(data, model_dir, gone=None):
+    """Leave out nodes whose mesh exists nowhere, and return their paths.
+
+    One missing mesh makes the game drop the whole model ("removed because
+    they reference an invalid resource"). It happens with a mod that only
+    rewrites a TF2 base vehicle's .mdl when TF3 remodelled that vehicle: the
+    body is still there, but headlights and some window panes were split up
+    and renamed. Without those parts the vehicle still runs and looks right."""
+    gone = [] if gone is None else gone
+    if isinstance(data, dict):
+        for v in data.values():
+            prune_missing_meshes(v, model_dir, gone)
+    elif isinstance(data, list):
+        keep = []
+        for v in data:
+            m = v.get("mesh") if isinstance(v, dict) else None
+            if isinstance(m, str) and not _mesh_exists(m, model_dir):
+                gone.append(m)
+                continue
+            prune_missing_meshes(v, model_dir, gone)
+            keep.append(v)
+        data[:] = keep
+    return gone
+
+
 def _is_tf3_model(text):
     try:
         return luadata.parse(text).get("version") == 2
@@ -56,9 +87,15 @@ def convert_mod(content_root, mod_id, log=print):
                 except (luaenv.LuaEnvError, Exception) as e:  # Lua errors come as several types
                     failed.append((rel, "%s: %s" % (type(e).__name__, str(e).splitlines()[0])))
                     continue
+                for m in sorted(set(prune_missing_meshes(data, d))):
+                    log("  %s: left out a part whose mesh exists nowhere: %s" % (rel, m))
                 refs = set()
                 _refs(data, refs)
-                used.update(os.path.normpath(os.path.join(d, r)) for r in refs)
+                # ::/ is base's own file, already in TF3 form and not ours to
+                # rewrite (a mod that only rewrites a base vehicle's .mdl
+                # refers to nothing else)
+                used.update(os.path.normpath(os.path.join(d, r)) for r in refs
+                            if not r.startswith("::/"))
                 with open(p, "wb") as f:
                     f.write(luadata.dump(data, float_fmt=model.fmt_float).encode("utf-8"))
                 counts["models"] += 1

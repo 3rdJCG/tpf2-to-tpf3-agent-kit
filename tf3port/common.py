@@ -65,7 +65,9 @@ class Vehicle(object):
 
     @property
     def res(self):
-        return os.path.join(self.src, "res")
+        # build may point this at a copy that has TF2's own files added
+        # (tf2base.overlay)
+        return getattr(self, "_res", None) or os.path.join(self.src, "res")
 
     def models(self):
         """The .mdl basenames as they end up in the staging mod."""

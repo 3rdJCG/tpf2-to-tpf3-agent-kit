@@ -51,7 +51,7 @@ up in the registry and Steam's library list. If something is wrong, put a `local
 }
 ```
 
-Keys: `steam` / `tf3` / `tf3_local` (`userdata/<ID>/3493540/local`) / `tf2_workshop` / `vehicles` /
+Keys: `steam` / `tf3` / `tf3_local` (`userdata/<ID>/3493540/local`) / `tf2` (only for mods that use TF2's own or DLC vehicles) / `tf2_workshop` / `vehicles` /
 `helper_loco` (the locomotive that pulls coaches in the drive test) / `name_prefix` (a mark in front of every
 ported vehicle's name, e.g. `"◆"`).
 
@@ -185,7 +185,7 @@ python ../tpf2-to-tpf3-agent-kit/port.py paths
 
 `port.py paths` は、Steam・TF3・staging area・TF2 ワークショップの場所が見つかったかを表示します。レジストリと
 Steam のライブラリ一覧から自動で探します。違っていれば、ワークスペースに `local_settings.json` を置いて上書きします
-(書き方は英語版の例を参照)。キーは `steam` / `tf3` / `tf3_local` / `tf2_workshop` / `vehicles` /
+(書き方は英語版の例を参照)。キーは `steam` / `tf3` / `tf3_local` / `tf2`(TF2 本体や DLC の車両を使う MOD のときだけ)/ `tf2_workshop` / `vehicles` /
 `helper_loco`(走行テストで客車を牽く機関車)/ `name_prefix`(移植した車両の名前に付ける印。例 `"◆"`)。
 
 ### 使い方

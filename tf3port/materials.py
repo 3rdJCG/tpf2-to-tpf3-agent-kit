@@ -197,6 +197,16 @@ def texture_sources(v):
                 continue
             parent = "" if root == root0 else os.path.basename(root)
             out[tex_key(parent, stem)] = os.path.join(root, fn)
+    # textures build took from TF2 itself (tf2base) exist only in staging; it
+    # copied them unchanged, and textures has not converted them yet
+    staged = os.path.join(v.veh, "mat", "tex")
+    for root, _, files in os.walk(staged):
+        for fn in files:
+            stem, ext = os.path.splitext(fn)
+            if ext.lower() not in (".tga", ".dds"):
+                continue
+            parent = "" if root == staged else os.path.basename(root)
+            out.setdefault(tex_key(parent, stem), os.path.join(root, fn))
     return out
 
 

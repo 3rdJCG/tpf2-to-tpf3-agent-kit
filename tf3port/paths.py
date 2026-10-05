@@ -6,13 +6,16 @@ Everything is found automatically, and any of it can be overridden in
     {
         "steam": "C:/Program Files (x86)/Steam",
         "tf3": "D:/SteamLibrary/steamapps/common/Transport Fever 3",
+        "tf2": "D:/SteamLibrary/steamapps/common/Transport Fever 2",
         "tf3_local": "C:/Program Files (x86)/Steam/userdata/<id>/3493540/local",
         "tf2_workshop": "D:/SteamLibrary/steamapps/workshop/content/1066780"
     }
 
 How each is found:
     steam         the SteamPath value Steam writes under HKCU\\Software\\Valve\\Steam
-    tf3, workshop  the Steam libraries listed in steamapps/libraryfolders.vdf
+    tf3, tf2, workshop  the Steam libraries listed in steamapps/libraryfolders.vdf
+                  (TF2 itself is optional: only for mods that use TF2's own or
+                  DLC vehicles' files)
     tf3_local     userdata/<account folder>/<TF3 app id>/local - TF3 keeps the
                   staging area, screenshots and its log there. With several
                   Steam accounts on one PC, the most recently used one wins.
@@ -92,6 +95,10 @@ LIBRARIES = _libraries(STEAM)
 TF3 = _local.get("tf3") or _first(
     os.path.join(l, "steamapps", "common", "Transport Fever 3") for l in LIBRARIES)
 
+TF2 = _local.get("tf2") or _first(
+    os.path.join(l, "steamapps", "common", "Transport Fever 2") for l in LIBRARIES
+    if os.path.isdir(os.path.join(l, "steamapps", "common", "Transport Fever 2", "res")))
+
 WORKSHOP = _local.get("tf2_workshop") or _first(
     os.path.join(l, "steamapps", "workshop", "content", TF2_APP_ID) for l in LIBRARIES)
 
@@ -126,7 +133,7 @@ EXAMPLES = os.path.join(REPO, "examples", "vehicles")
 def report():
     """What was found - `python port.py paths` prints this."""
     rows = [("workspace", WORKSPACE), ("steam", STEAM), ("tf3", TF3), ("tf3_local", TF3_LOCAL),
-            ("tf2_workshop", WORKSHOP), ("staging", STAGING),
+            ("tf2 (optional)", TF2), ("tf2_workshop", WORKSHOP), ("staging", STAGING),
             ("editor settings", EDITOR_SETTINGS), ("vehicles", VEHICLES)]
     for k, p in rows:
         print("%-16s %s %s" % (k, "ok " if p and os.path.exists(p) else "-- ", p or "(not found)"))
